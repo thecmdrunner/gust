@@ -48,8 +48,53 @@ func render(scale: CGFloat) -> NSBitmapImageRep {
     head.lineJoinStyle = .round
     head.stroke()
 
-    text("First launch: System Settings → Privacy & Security → Open Anyway", size: 12, weight: .regular,
-         color: NSColor(white: 0.45, alpha: 1), y: 340)
+    // First-launch callout: the app is unsigned, so Gatekeeper blocks the first open.
+    let card = NSRect(x: 70, y: H - 378, width: W - 140, height: 84)
+    NSGraphicsContext.saveGraphicsState()
+    let shadow = NSShadow()
+    shadow.shadowBlurRadius = 14
+    shadow.shadowOffset = NSSize(width: 0, height: -3)
+    shadow.shadowColor = NSColor(white: 0, alpha: 0.10)
+    shadow.set()
+    NSColor.white.setFill()
+    NSBezierPath(roundedRect: card, xRadius: 14, yRadius: 14).fill()
+    NSGraphicsContext.restoreGraphicsState()
+    let amber = NSColor(srgbRed: 0.96, green: 0.62, blue: 0.07, alpha: 1)
+    amber.withAlphaComponent(0.9).setStroke()
+    let border = NSBezierPath(roundedRect: card.insetBy(dx: 0.75, dy: 0.75), xRadius: 13.5, yRadius: 13.5)
+    border.lineWidth = 1.5
+    border.stroke()
+
+    func draw(_ s: String, _ font: NSFont, _ color: NSColor, at p: NSPoint) -> CGFloat {
+        let a: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+        (s as NSString).draw(at: p, withAttributes: a)
+        return (s as NSString).size(withAttributes: a).width
+    }
+
+    // Header: amber "!" badge + title.
+    let badge = NSRect(x: card.minX + 18, y: card.maxY - 36, width: 20, height: 20)
+    amber.setFill()
+    NSBezierPath(ovalIn: badge).fill()
+    let bang = NSFont.systemFont(ofSize: 13, weight: .heavy)
+    let bw = ("!" as NSString).size(withAttributes: [.font: bang]).width
+    _ = draw("!", bang, .white, at: NSPoint(x: badge.midX - bw / 2, y: badge.minY + 2))
+    _ = draw("First launch? macOS will block Gust. Allow it here:", .systemFont(ofSize: 14, weight: .semibold),
+             NSColor(white: 0.1, alpha: 1), at: NSPoint(x: badge.maxX + 10, y: badge.minY + 1))
+
+    // Steps as chips.
+    let chipFont = NSFont.systemFont(ofSize: 12.5, weight: .medium)
+    var x = badge.minX
+    let cy = card.minY + 14
+    for (i, step) in ["System Settings", "Privacy & Security", "Open Anyway"].enumerated() {
+        let w = (step as NSString).size(withAttributes: [.font: chipFont]).width + 20
+        let chip = NSRect(x: x, y: cy, width: w, height: 24)
+        let last = i == 2
+        (last ? blue : NSColor(white: 0.93, alpha: 1)).setFill()
+        NSBezierPath(roundedRect: chip, xRadius: 7, yRadius: 7).fill()
+        _ = draw(step, chipFont, last ? .white : NSColor(white: 0.15, alpha: 1), at: NSPoint(x: x + 10, y: cy + 4))
+        x += w
+        if !last { x += 6 + draw("›", .systemFont(ofSize: 15, weight: .semibold), NSColor(white: 0.55, alpha: 1), at: NSPoint(x: x + 6, y: cy + 2)) + 6 }
+    }
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
@@ -64,4 +109,5 @@ let p = Process()
 p.executableURL = URL(fileURLWithPath: "/usr/bin/tiffutil")
 p.arguments = ["-cathidpicheck", one.path, two.path, "-out", out]
 try! p.run(); p.waitUntilExit()
+try? FileManager.default.removeItem(atPath: "/tmp/dmg-bg-preview.png")
 try? FileManager.default.copyItem(at: two, to: URL(fileURLWithPath: "/tmp/dmg-bg-preview.png"))
