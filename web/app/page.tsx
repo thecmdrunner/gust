@@ -39,14 +39,6 @@ export default function Home() {
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-8">
-        <a
-          href={REPO}
-          className="-mb-3 flex items-center gap-2 rounded-full border border-line bg-card px-3.5 py-1 text-xs text-muted transition hover:text-fg"
-        >
-          <span className="size-1.5 rounded-full bg-emerald-500" />
-          Free &amp; open source
-          <span aria-hidden>→</span>
-        </a>
         <h1 className="text-center text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
           Full blast. <span className="text-muted">On demand.</span>
         </h1>
