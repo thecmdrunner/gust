@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: var(--font-inter-tight), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-card: var(--card);
+}
+
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --fg: #0b0d12;
+  --muted: #7a808c;
+  --line: rgb(11 13 18 / 0.08);
+  --card: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #08090b;
+  --fg: #f3f4f6;
+  --muted: #7d8390;
+  --line: rgb(255 255 255 / 0.08);
+  --card: #131519;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+}
