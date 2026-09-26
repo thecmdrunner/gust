@@ -18,7 +18,7 @@
 - **Min** / **Max** — lock every fan to its minimum or maximum RPM
 - **Custom** — pick any RPM with a slider
 - Live RPM per fan, in the menu bar and the panel
-- Light / dark / system appearance, open at login
+- Light / dark / system appearance
 - Fails safe: control goes back to macOS whenever you pick Auto, quit, or the app stops responding
 
 ## Install
@@ -29,7 +29,12 @@
 
 Requires macOS 14+ on an Apple Silicon Mac with fans (MacBook Pro, Mac mini, Mac Studio…). Tested on an M4 Pro MacBook Pro.
 
-**Uninstall:** click the trash icon in the panel (removes the helper), then delete Gust.app.
+**Uninstall:** quit Gust, delete Gust.app, then remove the helper:
+
+```sh
+sudo launchctl bootout system/com.thecmdrunner.gust.helper
+sudo rm /Library/PrivilegedHelperTools/com.thecmdrunner.gust.helper /Library/LaunchDaemons/com.thecmdrunner.gust.helper.plist
+```
 
 ## How it works
 
@@ -51,7 +56,7 @@ No Xcode project, no dependencies — just the Swift toolchain (Xcode or Command
 ```sh
 git clone https://github.com/thecmdrunner/gust && cd gust
 ./app/build.sh            # → app/build/Gust.app
-./app/make-dmg.sh         # → app/build/Gust.dmg (optional)
+./app/make-dmg.sh         # → app/build/Gust.dmg (optional, needs uv or pipx)
 open app/build/Gust.app
 ```
 

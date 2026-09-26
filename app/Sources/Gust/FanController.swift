@@ -1,5 +1,4 @@
 import AppKit
-import ServiceManagement
 import Foundation
 
 enum FanMode: String, CaseIterable, Identifiable {
@@ -21,9 +20,6 @@ final class FanController: ObservableObject {
     @Published var mode: FanMode = .auto
     @Published var customRPM: Double = UserDefaults.standard.object(forKey: "customRPM") as? Double ?? 3000 {
         didSet { UserDefaults.standard.set(customRPM, forKey: "customRPM") }
-    }
-    @Published var openAtLogin = SMAppService.mainApp.status == .enabled {
-        didSet { try? openAtLogin ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister() }
     }
     @Published var helperReady = false
     @Published var error: String?
@@ -76,13 +72,6 @@ final class FanController: ObservableObject {
         guard helperReady || mode == .auto else { return }
         let reply = HelperClient.send(command)
         if reply == nil, mode != .auto { error = "Helper unreachable"; helperReady = false; mode = .auto }
-    }
-
-    func uninstallHelper() {
-        _ = HelperClient.send("auto")
-        mode = .auto
-        try? HelperInstaller.uninstall()
-        helperReady = false
     }
 
     private var command: String {
@@ -151,10 +140,6 @@ enum HelperInstaller {
         cp \(q(tmp.path)) \(q(plist)) && chown root:wheel \(q(plist)) && chmod 644 \(q(plist)) && \
         launchctl bootstrap system \(q(plist))
         """)
-    }
-
-    static func uninstall() throws {
-        try runAsAdmin("launchctl bootout system/\(Gust.helperLabel) 2>/dev/null; rm -f \(q(binary)) \(q(plist))")
     }
 
     private static func q(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }

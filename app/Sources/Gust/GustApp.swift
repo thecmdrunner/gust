@@ -1,5 +1,4 @@
 import AppKit
-import ServiceManagement
 import SwiftUI
 
 @main
@@ -75,18 +74,11 @@ struct PanelView: View {
                 }
                 .help(["System", "Light", "Dark"][appearance])
 
-                Toggle(isOn: $c.openAtLogin) { Image(systemName: "power") }
-                    .toggleStyle(.button)
-                    .help("Open at login")
-
                 Spacer()
 
-                if c.helperReady {
-                    Button { c.uninstallHelper() } label: { Image(systemName: "trash") }
-                        .help("Remove helper")
-                }
-                Button { NSApp.terminate(nil) } label: { Image(systemName: "xmark.circle") }
-                    .help("Quit (fans return to macOS)")
+                Button("Quit") { NSApp.terminate(nil) }
+                    .keyboardShortcut("q")
+                    .help("Fans return to macOS")
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
