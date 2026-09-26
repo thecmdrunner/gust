@@ -6,3 +6,4 @@ web/.vercel/
 web/next-env.d.ts
 *.tsbuildinfo
 .env*
+.vercel/
