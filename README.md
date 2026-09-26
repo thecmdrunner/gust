@@ -23,7 +23,7 @@
 
 ## Install
 
-1. Download `Gust.zip` from [Releases](https://github.com/thecmdrunner/gust/releases/latest), unzip, move **Gust.app** to Applications.
+1. Download `Gust.dmg` from [Releases](https://github.com/thecmdrunner/gust/releases/latest), open it, drag **Gust** into Applications.
 2. Gust isn't notarized yet. On first launch macOS will block it — open **System Settings → Privacy & Security** and click **Open Anyway**.
 3. The first time you pick a manual mode, Gust asks for your password once to install its helper.
 
@@ -51,6 +51,7 @@ No Xcode project, no dependencies — just the Swift toolchain (Xcode or Command
 ```sh
 git clone https://github.com/thecmdrunner/gust && cd gust
 ./app/build.sh            # → app/build/Gust.app
+./app/make-dmg.sh         # → app/build/Gust.dmg (optional)
 open app/build/Gust.app
 ```
 
