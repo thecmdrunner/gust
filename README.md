@@ -22,3 +22,7 @@ Next.js. `bun install && bun dev`. Download served from `web/public/Gust.zip` â€
 ```sh
 ./app/build.sh && ditto -c -k --keepParent app/build/Gust.app web/public/Gust.zip
 ```
+
+## License
+
+MIT â€” see [LICENSE](LICENSE).
