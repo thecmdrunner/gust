@@ -1,0 +1,30 @@
+name: Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Mac model
+      description: Output of `sysctl -n hw.model` (e.g. Mac16,7)
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Helper status / logs
+      description: Output of `echo status | nc -U /var/run/gust.sock`, plus anything else useful.
+      render: shell
