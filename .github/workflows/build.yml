@@ -7,26 +7,44 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   app:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
       - name: Build Gust.app
-        run: ./app/build.sh
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "v$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' app/Resources/Info.plist)"
+          fi
+          ./app/build.sh
+      - name: Native regression tests
+        run: bun app/scripts/test.ts
+      - uses: astral-sh/setup-uv@v6
       - name: Package DMG
         run: ./app/make-dmg.sh
+      - name: Verify and checksum installer
+        run: |
+          codesign --verify --deep --strict app/build/Gust.app
+          test "$(lipo -archs app/build/Gust.app/Contents/MacOS/Gust | wc -w | tr -d ' ')" = 2
+          hdiutil verify app/build/Gust.dmg
+          cd app/build
+          shasum -a 256 Gust.dmg > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: Gust
-          path: app/build/Gust.dmg
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" app/build/Gust.dmg --title "Gust $GITHUB_REF_NAME" --generate-notes
+          path: |
+            app/build/Gust.dmg
+            app/build/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
 
   web:
     runs-on: ubuntu-latest
@@ -36,5 +54,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - run: pnpm install --frozen-lockfile
       - run: bun run build
+
+  release:
+    needs: [app, web]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Gust
+          path: release
+      - name: Publish update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd release
+          sha256sum --check SHA256SUMS.txt
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" Gust.dmg SHA256SUMS.txt --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" Gust.dmg SHA256SUMS.txt --verify-tag --title "Gust $GITHUB_REF_NAME" --notes-file ../docs/release-notes.md --latest
+          fi

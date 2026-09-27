@@ -8,14 +8,14 @@ Open an [issue](https://github.com/thecmdrunner/gust/issues/new/choose) and incl
 
 - Mac model (`sysctl -n hw.model`) and macOS version
 - What you did, what you expected, what happened
-- Output of `echo status | nc -U /var/run/gust.sock` if the helper is involved
+- Output of `app/build/Gust.app/Contents/Helpers/GustHelper --probe` if fan readings are involved
 
-Different Macs expose slightly different SMC keys, so a `smcprobe list` dump (see README) is gold for hardware issues.
+Different Macs expose slightly different SMC keys, so the read-only probe output (see README) is gold for hardware issues.
 
 ## Pull requests
 
 1. Fork, branch from `main`.
-2. `./app/build.sh` must build without errors. For the site: `cd web && bun run build`.
+2. `./app/build.sh` and `bun app/scripts/test.ts` must pass. For the site: `cd web && bun run build`.
 3. Test on real hardware when touching fan control, and say which Mac you tested on.
 4. Keep PRs focused; match the surrounding style.
 
