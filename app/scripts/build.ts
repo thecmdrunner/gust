@@ -1,4 +1,4 @@
-import { mkdirSync, cpSync } from 'node:fs'
+import { mkdirSync, cpSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 const root = resolve(import.meta.dir, '../..')
 process.chdir(root)
@@ -15,7 +15,8 @@ for (const arch of architectures) {
   run(['xcrun', 'clang', '-target', target, '-O2', '-Wall', '-I', 'app/Sources/CSMC/include', '-c', 'app/Sources/CSMC/CSMC.c', '-o', `${dir}/CSMC.o`])
   run(['xcrun', 'swiftc', '-target', target, '-swift-version', '5', '-O', '-I', 'app/Sources/CSMC/include', '-emit-library', '-static', '-emit-module', '-module-name', 'GustCore', 'app/Sources/GustCore/SMC.swift', 'app/Sources/GustCore/Temperature.swift', '-emit-module-path', `${dir}/GustCore.swiftmodule`, '-o', `${dir}/libGustCore.a`])
   for (const name of ['GustHelper', 'Gust']) {
-    run(['xcrun', 'swiftc', '-target', target, '-swift-version', '5', '-O', '-I', 'app/Sources/CSMC/include', '-I', dir, '-L', dir, '-lGustCore', '-framework', 'IOKit', `${dir}/CSMC.o`, `app/Sources/${name}/main.swift`, '-o', `${dir}/${name}`])
+    const sources = readdirSync(`app/Sources/${name}`).filter(f => f.endsWith('.swift')).sort().map(f => `app/Sources/${name}/${f}`)
+    run(['xcrun', 'swiftc', '-target', target, '-swift-version', '5', '-O', '-I', 'app/Sources/CSMC/include', '-I', dir, '-L', dir, '-lGustCore', '-framework', 'IOKit', `${dir}/CSMC.o`, ...sources, '-o', `${dir}/${name}`])
   }
 }
 const bundle = process.env.GUST_APP_BUNDLE || 'app/build/Gust.app'

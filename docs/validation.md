@@ -11,3 +11,9 @@ The original DMG script, background, layout settings, and app icon are unchanged
 The website production build and TypeScript checks pass. Website components, styles, imagery, and download URL are unchanged; only package-manager metadata/lockfile changed to pnpm. Its existing link targets the latest release's Gust.dmg.
 
 Legacy helper migration runs only after administrator authorization for a manual preset. It stops the known 1.0.x LaunchDaemon and removes its two installed service files before starting the session helper. Migration has been code-reviewed but not exercised against an installed 1.0.x service on this machine. Intel and other Mac models remain physically unverified. The app is ad-hoc signed, not notarized.
+
+## 1.1.1 fanless experience
+
+18 core tests plus five model tests pass. The new model tests exercise confirmed zero fans with and without temperature data, initial checking, missing fan-count keys, recovery from read failure, and a physical fan stopped at zero RPM. They assert that fanless/unknown paths never request administrator authorization or write SMC data. Temperature can remain visible if the independent fan read fails.
+
+The actual SwiftUI fanless component was rendered off-screen with explicit fixture readings in light and dark themes, plus the missing-temperature state. These are test fixtures, not live MacBook Air measurements. No preview mode or synthetic temperature data is shipped in the app. A physical MacBook Air was not available. The production website build passes.

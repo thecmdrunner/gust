@@ -69,8 +69,13 @@ export default function Home() {
             View source
           </a>
         </div>
+        <p className="text-sm text-muted text-center">
+          Fan control requires a Mac with fans.
+          <br />
+          Apple Silicon MacBook Air: temperature only, where available.
+        </p>
         <p className="text-xs text-muted">
-          MIT licensed · macOS 14+ · Apple Silicon
+          MIT licensed · macOS 14+
         </p>
       </footer>
     </div>

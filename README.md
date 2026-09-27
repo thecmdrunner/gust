@@ -20,6 +20,7 @@
 - Fan icon and live RPM in the menu bar; right-click for Auto, Min, Max, and Quit
 - Live chip temperature, thermal colors, and cooling progress during Max
 - Individual fan readings inside an easy-to-click Fan details row
+- **Fanless Macs** — a quiet temperature-only view, with no fan controls or administrator prompts
 - Light / dark / system appearance
 - Fails safe: control goes back to macOS whenever you pick Auto, quit, or the app stops responding
 
@@ -31,7 +32,9 @@
 
 **Updating from 1.0.x:** quit the old Gust before replacing it. Version 1.1 automatically retires the old LaunchDaemon when you next authorize manual control.
 
-Requires macOS 14+ on a Mac with fans. Universal Apple Silicon / Intel build; physically tested on an M4 Pro MacBook Pro. Intel and other models have not been physically verified.
+Requires macOS 14+. Fan control requires a Mac with fans. Universal Apple Silicon / Intel build; physically tested on an M4 Pro MacBook Pro. Intel and other models have not been physically verified.
+
+**MacBook Air with Apple silicon:** these Macs have no fans. Gust switches to temperature monitoring where sensors are available; it cannot add active cooling. The panel says “Quiet by nature.” and offers Activity Monitor if you want to find demanding apps. Capability detection uses the hardware fan count, not the model name. A failed sensor read or a stopped fan is never treated as proof that the Mac is fanless.
 
 **Uninstall:** quit Gust and delete Gust.app. The 1.1 helper exits with the app; no persistent service is installed. If you never authorized 1.1 and still have the 1.0.x helper, its original cleanup is:
 

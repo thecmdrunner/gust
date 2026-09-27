@@ -1,14 +1,11 @@
-Gust 1.1 brings live chip temperature, a refreshed fan panel, and faster controls from the menu bar.
+Gust 1.1.1 makes fanless Macs feel at home.
 
-- Fan icon with live RPM in the menu bar. Right-click or Control-click for Auto, Min, Max, and Quit.
-- Native preset checkmarks, keyboard navigation, and a VoiceOver “Show fan presets” action.
-- Live chip temperature with frost-to-heat colors and cooling progress during Max.
-- Per-fan RPM behind a full-width, easy-to-click Fan details row.
-- Universal app for Apple Silicon and Intel, macOS 14+.
-- Session-scoped helper with automatic recovery on lost heartbeat, quit, sleep, or serious thermal pressure.
+- **Quiet by nature.** Macs with no fans get a temperature-only panel, a calm explanation, and a shortcut to Activity Monitor.
+- The menu bar shows temperature instead of an empty RPM reading. Fan presets, speed sliders, and fan details disappear on fanless hardware.
+- No administrator prompt for fanless Macs. Temperature monitoring stays read-only.
+- Unknown hardware, failed fan reads, and a stopped fan are handled separately from confirmed zero fans.
+- The website explains MacBook Air compatibility before download.
 
-**Install/update:** Quit the old Gust first. Open `Gust.dmg`, then drag Gust to Applications and choose Replace. The installer retains the illustrated setup and first-launch instructions. If macOS blocks the app, open System Settings → Privacy & Security → Open Anyway.
+**Install/update:** Quit Gust, open `Gust.dmg`, then drag Gust to Applications and choose Replace. If macOS blocks the app, open System Settings → Privacy & Security → Open Anyway. The original illustrated installer is preserved.
 
-The app is ad-hoc signed and not notarized. The first manual preset requests administrator permission; it retires the old 1.0.x helper automatically. A fresh app session may request permission again. The app stays in Auto until you choose a manual preset.
-
-Website design and download URL are unchanged. SHA-256 checksum included.
+Universal Apple Silicon / Intel, macOS 14+. Ad-hoc signed, not notarized. Temperature availability varies by Mac. Fanless behavior was tested with hardware fixtures and rendered in light/dark themes; a physical MacBook Air was not available for testing.

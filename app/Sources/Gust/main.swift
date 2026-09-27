@@ -2,119 +2,6 @@ import AppKit
 import SwiftUI
 import GustCore
 
-func authorizeHelper() throws {
-    let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/GustHelper").path
-    guard FileManager.default.isExecutableFile(atPath: helper) else { throw GustError("GustHelper is missing. Reinstall Gust.") }
-    let quote = "'" + helper.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    // Retire the v1.0.x LaunchDaemon before starting the session-scoped helper.
-    let migration = """
-    if /bin/launchctl print system/com.thecmdrunner.gust.helper >/dev/null 2>&1; then
-        /bin/launchctl bootout system/com.thecmdrunner.gust.helper || exit 1
-    fi
-    /bin/rm -f /Library/LaunchDaemons/com.thecmdrunner.gust.helper.plist /Library/PrivilegedHelperTools/com.thecmdrunner.gust.helper || exit 1
-    """
-    let command = migration + "\n\(quote) --serve \(getuid()) \(getpid()) </dev/null >/dev/null 2>&1 &"
-    let escaped = command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-    let process = Process(); process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-    process.arguments = ["-e", "do shell script \"\(escaped)\" with administrator privileges with prompt \"Gust needs permission to control your fans.\""]
-    let output = Pipe(); process.standardError = output
-    try process.run(); process.waitUntilExit()
-    guard process.terminationStatus == 0 else {
-        throw GustError("Fan control wasn’t authorized. Auto is still available.")
-    }
-    for _ in 0..<30 {
-        if (try? HelperClient.request("ping")) != nil { return }
-        Thread.sleep(forTimeInterval: 0.1)
-    }
-    throw GustError("Helper did not start. Close other Gust windows, then try again.")
-}
-
-final class FanModel: ObservableObject {
-    @Published var fans: [Fan] = []
-    @Published var mode = "Auto"
-    @Published var fraction = 0.5
-    @Published var slider = 0.5
-    @Published var busy = false
-    @Published var error: String?
-    @Published var fresh = false
-    @Published var temperature: TemperatureReading?
-    @Published var maxBaseline: TemperatureReading?
-    @Published var showDetails = false
-    private let queue = DispatchQueue(label: "com.thecmdrunner.gust.smc")
-    private var controller: FanController?
-    private var temperatureReader: TemperatureReader?
-    private var connected = false
-    private var timer: Timer?
-    var statusChanged: (()->Void)?
-    var actionFailed: (()->Void)?
-    init() {
-        refresh()
-        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
-        // Keep telemetry and the helper heartbeat alive while a menu is tracking.
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
-    }
-    func refresh() {
-        queue.async { [weak self] in
-            guard let self else { return }
-            do {
-                if self.controller == nil {
-                    let smc = try AppleSMC()
-                    self.controller = FanController(smc: smc)
-                    self.temperatureReader = TemperatureReader(smc: smc)
-                }
-                let temperature = self.temperatureReader?.read()
-                DispatchQueue.main.async { self.temperature = temperature }
-                if self.connected { _ = try HelperClient.request("ping") }
-                let fans = try self.controller!.fans()
-                DispatchQueue.main.async {
-                    self.fans = fans; self.fresh = true
-                    if !self.connected { self.mode = fans.contains(where: { $0.manual }) ? "External" : "Auto" }
-                    else if !fans.contains(where: { $0.manual }) { self.mode = "Auto" }
-                    if self.mode != "Max" { self.maxBaseline = nil }
-                    self.statusChanged?()
-                }
-            } catch {
-                self.connected = false
-                DispatchQueue.main.async { self.fresh = false; self.temperature = nil; self.maxBaseline = nil; self.error = error.localizedDescription; self.mode = "Checking"; self.statusChanged?() }
-            }
-        }
-    }
-    func choose(_ mode: String, fraction: Double? = nil) {
-        guard !busy || mode == "Auto" else { return }
-        busy = true; error = nil
-        statusChanged?()
-        let value = fraction ?? (mode == "Min" ? 0 : mode == "Max" ? 1 : self.fraction)
-        queue.async {
-            do {
-                if mode != "Auto", !self.connected { try authorizeHelper(); self.connected = true }
-                if self.connected { _ = try HelperClient.request(mode == "Auto" ? "auto" : "set \(value)") }
-                else if try self.controller?.fans().contains(where: { $0.manual }) == true {
-                    throw GustError("Another app controls these fans. Set that app to Auto first.")
-                }
-                let current = try self.controller?.fans() ?? []
-                let temperature = self.temperatureReader?.read()
-                if mode == "Auto", current.contains(where: { $0.manual }) {
-                    throw GustError("A fan is still in manual mode. Close other fan utilities and retry Auto.")
-                }
-                DispatchQueue.main.async {
-                    if mode != "Max" { self.maxBaseline = nil }
-                    else if self.mode != "Max" { self.maxBaseline = temperature }
-                    self.temperature = temperature
-                    self.mode = mode; self.fraction = value; self.slider = value; self.fans = current; self.fresh = true; self.busy = false
-                    self.statusChanged?()
-                }
-            } catch {
-                DispatchQueue.main.async { self.error = error.localizedDescription; self.busy = false; self.statusChanged?(); self.actionFailed?() }
-            }
-        }
-    }
-    func shutdown(_ completion: @escaping ()->Void) {
-        timer?.invalidate()
-        queue.async { if self.connected { _ = try? HelperClient.request("quit") }; DispatchQueue.main.async(execute: completion) }
-    }
-}
-
 struct ThermalPalette {
     var celsius: Double?
     var dark: Bool
@@ -204,6 +91,55 @@ struct FullRowDisclosureStyle: DisclosureGroupStyle {
     }
 }
 
+func openActivityMonitor() {
+    NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"), configuration: NSWorkspace.OpenConfiguration())
+}
+
+struct FanlessView: View {
+    @ObservedObject var model: FanModel
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        let palette = ThermalPalette(celsius: model.temperature?.celsius, dark: scheme == .dark)
+        VStack(spacing: 24) {
+            ZStack {
+                Circle().fill(palette.gradient).opacity(0.12)
+                Image(systemName: "leaf.fill").font(.system(size: 44, weight: .light)).foregroundStyle(palette.gradient)
+            }.frame(width: 112, height: 112).accessibilityHidden(true)
+            VStack(spacing: 8) {
+                Text("Quiet by nature.").font(.system(size: 22, weight: .semibold, design: .rounded))
+                Text(model.temperature == nil ? "Your Mac cools without a fan.\nThere’s nothing for Gust to adjust." : "Your Mac cools without a fan.\nGust keeps an eye on the temperature.")
+                    .font(.system(size: 14)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            }
+            if let reading = model.temperature {
+                VStack(spacing: 6) {
+                    Text("\(Int(reading.celsius.rounded()))°C")
+                        .font(.system(size: 46, weight: .medium, design: .rounded)).monospacedDigit().foregroundStyle(palette.gradient)
+                    Text("\(reading.source) temperature").font(.system(size: 13)).foregroundStyle(.secondary)
+                    ThermalScale(celsius: reading.celsius).padding(.top, 8)
+                }.accessibilityElement(children: .combine)
+                    .help("Hottest available CPU or GPU sensor. Not case temperature.")
+            } else {
+                VStack(spacing: 6) {
+                    Text("Temperature unavailable").font(.system(size: 15, weight: .medium))
+                    Text("Gust can’t read this Mac’s temperature.")
+                        .font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                }.fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(spacing: 10) {
+                Text("Running warm? Give busy apps a breather.").font(.system(size: 13)).foregroundStyle(.secondary)
+                Button(action: openActivityMonitor) {
+                    Label("Open Activity Monitor", systemImage: "waveform.path.ecg")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                    .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+                    .help("See which apps are using your Mac’s CPU.")
+            }
+        }.padding(.vertical, 12)
+    }
+}
+
 struct ContentView: View {
     @ObservedObject var model: FanModel
     @AppStorage("appearance") private var appearance = "system"
@@ -231,7 +167,26 @@ struct ContentView: View {
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                     .help("Appearance and settings")
             }
-            Rotor(speed: model.fresh ? (model.fans.first?.actual ?? 0) : 0, temperature: model.temperature?.celsius)
+            if model.isFanless {
+                FanlessView(model: model)
+            } else if !model.fresh {
+                VStack(spacing: 16) {
+                    if model.readError == nil {
+                        ProgressView()
+                        Text("Checking this Mac…").foregroundStyle(.secondary)
+                    } else {
+                        Image(systemName: "fanblades").font(.system(size: 44)).foregroundStyle(.secondary).accessibilityHidden(true)
+                        Text("Can’t read fan information").font(.system(size: 20, weight: .semibold))
+                        Text("Gust will keep trying. Fan controls are unavailable for now.")
+                            .font(.system(size: 14)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        Button("Try again") { model.refresh() }.controlSize(.large)
+                        if let reading = model.temperature {
+                            Text("\(Int(reading.celsius.rounded()))°C · \(reading.source)").font(.system(size: 17)).monospacedDigit()
+                        }
+                    }
+                }.frame(maxWidth: .infinity).padding(.vertical, 36)
+            } else {
+            Rotor(speed: model.fans.first?.actual ?? 0, temperature: model.temperature?.celsius)
             VStack(spacing: 7) {
                 HStack(spacing: 18) {
                     VStack(spacing: 4) {
@@ -284,12 +239,13 @@ struct ContentView: View {
                 }.padding(.top, 8)
             }.disclosureGroupStyle(FullRowDisclosureStyle())
                 .font(.system(size: 13)).foregroundStyle(.secondary)
-            if model.busy || model.fans.isEmpty || model.mode == "External" || model.mode == "Checking" {
+            if model.busy || model.mode == "External" {
                 HStack(spacing: 6) {
                     if model.busy { ProgressView().controlSize(.small) }
-                    Text(model.busy ? "Connecting…" : model.fans.isEmpty ? "No controllable fans detected" : model.mode == "External" ? "Controlled by another app" : "Checking fan state…")
+                    Text(model.busy ? "Connecting…" : "Controlled by another app")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
+            }
             }
             if let error = model.error { Text(error).font(.system(size: 11)).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true).textSelection(.enabled) }
         }
@@ -323,9 +279,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             button.action = #selector(statusItemClicked); button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             button.setAccessibilityLabel("Gust fan control")
-            button.setAccessibilityHelp("Press to open Gust. Right-click or Control-click for fan presets and Quit.")
+            button.setAccessibilityHelp("Press to open Gust. Right-click or Control-click for options and Quit.")
             button.setAccessibilityCustomActions([
-                NSAccessibilityCustomAction(name: "Show fan presets", target: self, selector: #selector(accessibilityShowPresets))
+                NSAccessibilityCustomAction(name: "Show Gust menu", target: self, selector: #selector(accessibilityShowPresets))
             ])
         }
         presetMenu.delegate = self
@@ -339,6 +295,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             entry.toolTip = mode == "Auto" ? "Let macOS manage fan speed" : mode == "Min" ? "Set all fans to their hardware minimum" : "Set all fans to their hardware maximum"
             presetMenu.addItem(entry)
         }
+        let open = NSMenuItem(title: "Open Gust", action: #selector(openGust), keyEquivalent: "")
+        open.target = self; presetMenu.addItem(open)
+        let activity = NSMenuItem(title: "Open Activity Monitor", action: #selector(showActivityMonitor), keyEquivalent: "")
+        activity.target = self; presetMenu.addItem(activity)
         presetMenu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Gust", action: #selector(quitGust), keyEquivalent: "q")
         quit.target = self
@@ -351,6 +311,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
     private func updateStatusItem() {
         guard let button = item.button else { return }
+        let icon = NSImage(systemSymbolName: model.isFanless ? "thermometer.medium" : "fanblades.fill", accessibilityDescription: nil)
+        icon?.isTemplate = true; button.image = icon
+        button.setAccessibilityLabel(model.isFanless ? "Gust temperature monitor" : "Gust fan control")
+        if model.isFanless {
+            button.title = model.temperature.map { " \(Int($0.celsius.rounded()))°C" } ?? " Fanless"
+            button.setAccessibilityValue(model.temperature.map { "\(Int($0.celsius.rounded())) degrees Celsius, fanless Mac" } ?? "Fanless Mac, temperature unavailable")
+            button.toolTip = "Gust · Temperature only\nThis Mac has no fan to control."
+            updatePresetMenu()
+            return
+        }
         let rpm = model.fresh ? model.fans.first.map { Int($0.actual) } : nil
         button.title = rpm.map { " \($0) rpm" } ?? " — rpm"
         let reading = rpm.map { "\($0) revolutions per minute" } ?? (model.fresh && model.fans.isEmpty ? "No fans detected" : "Fan speed unavailable")
@@ -360,10 +330,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         updatePresetMenu()
     }
     private func updatePresetMenu() {
+        presetMenu.items.first?.title = model.isFanless ? "Fanless Mac · Temperature only" : model.fresh ? "Presets" : model.readError == nil ? "Checking fans…" : "Fan information unavailable"
         for entry in presetMenu.items where ["Auto", "Min", "Max"].contains(entry.title) {
+            entry.isHidden = !model.canControlFans
             entry.state = model.mode == entry.title ? .on : .off
-            entry.isEnabled = entry.title == "Auto" || (!model.busy && model.fresh && !model.fans.isEmpty)
+            entry.isEnabled = model.canControlFans && (entry.title == "Auto" || !model.busy)
         }
+        presetMenu.items.first(where: { $0.title == "Open Gust" })?.isHidden = model.canControlFans
+        presetMenu.items.first(where: { $0.title == "Open Activity Monitor" })?.isHidden = !model.isFanless
     }
     @objc private func statusItemClicked() {
         let event = NSApp.currentEvent
@@ -384,6 +358,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         model.choose(sender.title)
     }
     @objc private func quitGust() { NSApp.terminate(nil) }
+    @objc private func openGust() { show() }
+    @objc private func showActivityMonitor() { openActivityMonitor() }
     @objc func toggle() { if window.isVisible { window.orderOut(nil) } else { show() } }
     func show() { NSApp.activate(ignoringOtherApps: true); window.makeKeyAndOrderFront(nil) }
     @objc func willSleep() { model.choose("Auto") }
