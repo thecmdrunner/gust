@@ -77,14 +77,14 @@ export function FanDemo() {
           ref={glowRef}
           className="pointer-events-none absolute inset-[-18%] rounded-full bg-[radial-gradient(closest-side,rgb(56_140_255/0.35),transparent)] blur-2xl transition-opacity"
         />
-        <div className="relative grid size-[min(40dvh,62vw)] place-items-center rounded-full border border-line bg-card shadow-[0_30px_80px_-30px_rgb(20_60_200/0.35)]">
+        <div className="relative grid size-[min(40dvh,62vw)] place-items-center rounded-full border border-line bg-card shadow-[0_30px_80px_-30px_rgb(20_60_200/0.35)] [@media(max-height:740px)]:size-[min(30dvh,54vw)]">
           <div ref={fanRef} className="size-[82%] will-change-transform">
             <FanBlades className="size-full" />
           </div>
         </div>
       </div>
 
-      <div className="mt-7 flex items-baseline gap-1.5 tabular-nums">
+      <div className="mt-7 flex items-baseline gap-1.5 tabular-nums [@media(max-height:740px)]:mt-5">
         <span ref={rpmRef} className="text-5xl font-semibold tracking-tight sm:text-6xl">
           1,390
         </span>
@@ -94,7 +94,7 @@ export function FanDemo() {
         <div ref={barRef} className="h-full origin-left rounded-full bg-gradient-to-r from-[#5cc2ff] to-[#1a4df2]" />
       </div>
 
-      <div role="radiogroup" aria-label="Fan mode" className="mt-7 flex rounded-full border border-line bg-card p-1 text-sm">
+      <div role="radiogroup" aria-label="Fan mode" className="mt-7 flex rounded-full border border-line bg-card p-1 text-sm [@media(max-height:740px)]:mt-5">
         {modes.map((m) => (
           <button
             key={m}
