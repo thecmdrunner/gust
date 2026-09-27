@@ -48,7 +48,7 @@ export default function Home() {
       <footer className="flex shrink-0 flex-col items-center gap-2.5 pb-8 pt-4">
         <div className="flex items-center gap-2">
           <a
-            href={`${REPO}/releases/latest/download/Gust.dmg`}
+            href="/download"
             className="flex items-center gap-2 whitespace-nowrap rounded-full bg-fg px-4 py-3 text-sm font-medium text-bg transition hover:opacity-85 active:scale-[0.98] sm:px-6"
           >
             <svg

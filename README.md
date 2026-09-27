@@ -26,7 +26,7 @@
 
 ## Install
 
-1. Download `Gust.dmg` from [Releases](https://github.com/thecmdrunner/gust/releases/latest), open it, drag **Gust** into Applications.
+1. Download `Gust-<version>-macos.dmg` from [Releases](https://github.com/thecmdrunner/gust/releases/latest), open it, drag **Gust** into Applications.
 2. Gust isn't notarized yet. On first launch macOS will block it — open **System Settings → Privacy & Security** and click **Open Anyway**.
 3. The first manual preset in an app session asks for administrator permission to start the helper.
 
@@ -49,7 +49,7 @@ The SwiftUI app reads fan RPM and supported CPU/GPU temperature sensors through 
 
 A small root helper handles writes. Each app session gets a private socket under `/var/run/gust-fan/`; the helper validates both the connecting user and app process. A root-owned lock prevents competing Gust sessions. Commands are restricted to validated fan operations within the hardware's reported limits.
 
-The helper restores Auto on quit, lost heartbeat (six seconds), parent exit, or serious thermal pressure. Closing the app window and system sleep also request Auto. Menu tracking keeps the heartbeat running. A failed menu preset opens the panel to explain the error.
+The helper restores Auto on quit, lost heartbeat (six seconds), parent exit, or serious thermal pressure. Closing the app window and system sleep also request Auto. A background timer keeps the heartbeat independent of the window; active overrides opt out of App Nap without preventing system sleep. Expired connections are checked before applying a manual preset. A failed menu preset opens the panel to explain the error.
 
 The app is ad-hoc signed, not notarized. No Developer ID certificate is included. MIT and third-party notices are bundled in the app.
 
@@ -61,7 +61,7 @@ Requires macOS, the Swift toolchain (Xcode or Command Line Tools), and Bun. Inst
 git clone https://github.com/thecmdrunner/gust && cd gust
 ./app/build.sh                   # universal → app/build/Gust.app
 bun app/scripts/test.ts          # native regression tests
-./app/make-dmg.sh                # original illustrated installer → app/build/Gust.dmg
+./app/make-dmg.sh                # original illustrated installer → app/build/Gust-<version>-macos.dmg
 open app/build/Gust.app
 ```
 
@@ -74,7 +74,7 @@ app/build/Gust.app/Contents/MacOS/Gust --temperature-probe
 
 The website lives in [`web/`](web) (Next.js): `cd web && pnpm install && bun run dev`.
 
-CI builds/tests on main and pull requests. Version tags publish `Gust.dmg` and its SHA-256 checksum after app and website checks pass. The website's existing latest-release link automatically serves the new installer.
+CI builds/tests on main and pull requests. Version tags publish `Gust-<version>-macos.dmg` and its SHA-256 checksum after app and website checks pass. The website’s /download route resolves the latest versioned installer automatically.
 
 ## Contributing
 

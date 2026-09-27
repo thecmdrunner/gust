@@ -127,7 +127,8 @@ void gust_server_close(int server, uint32_t uid, int pid) {
 int gust_request(uint32_t uid, int pid, const char *command, char *reply, size_t size) {
     int fd = socket(AF_UNIX, SOCK_STREAM, 0); if (fd < 0) return -1; timeout(fd);
     // Unlocking Apple Silicon arbitration may take a few seconds.
-    struct timeval t = {.tv_sec=8}; setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t));
+    struct timeval t = {.tv_sec=strncmp(command, "set ", 4) == 0 ? GUST_SET_REPLY_TIMEOUT_SECONDS : 8};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof(t));
     struct sockaddr_un addr = address(uid, pid);
     if (connect(fd, (struct sockaddr*)&addr, sizeof(addr))) { close(fd); return -1; }
     uid_t peer; gid_t group;

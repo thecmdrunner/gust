@@ -41,28 +41,44 @@ final class FanModel: ObservableObject {
     @Published var temperature: TemperatureReading?
     @Published var maxBaseline: TemperatureReading?
     @Published var showDetails = false
-    private let queue = DispatchQueue(label: "com.thecmdrunner.gust.smc")
+    private let queue = DispatchQueue(label: "com.thecmdrunner.gust.smc", qos: .userInitiated)
     private var controller: FanController?
     private var temperatureReader: TemperatureReader?
     private var connected = false
-    private var timer: Timer?
+    private var timer: DispatchSourceTimer?
+    private var overrideActivity: NSObjectProtocol?
     private let authorize: () throws -> Void
+    private let request: (String) throws -> String
     var isFanless: Bool { fresh && fans.isEmpty }
     var canControlFans: Bool { fresh && !fans.isEmpty }
     var statusChanged: (()->Void)?
     var actionFailed: (()->Void)?
-    init(smc: SMCTransport? = nil, polling: Bool = true, authorize: @escaping () throws -> Void = authorizeHelper) {
+    init(smc: SMCTransport? = nil, polling: Bool = true, authorize: @escaping () throws -> Void = authorizeHelper, request: @escaping (String) throws -> String = HelperClient.request) {
         self.authorize = authorize
+        self.request = request
         if let smc {
             controller = FanController(smc: smc)
             temperatureReader = TemperatureReader(smc: smc)
         }
         guard polling else { return }
         refresh()
-        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
-        // Keep telemetry and the helper heartbeat alive while a menu is tracking.
-        RunLoop.main.add(timer, forMode: .common)
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 1, repeating: 1, leeway: .milliseconds(100))
+        timer.setEventHandler { [weak self] in self?.refresh() }
+        timer.resume()
         self.timer = timer
+    }
+    // Confined to the SMC queue. An active override must not be App Napped.
+    private func keepOverrideAwake(_ active: Bool) {
+        if active && overrideActivity == nil {
+            overrideActivity = ProcessInfo.processInfo.beginActivity(options: .userInitiatedAllowingIdleSystemSleep, reason: "Maintain the fan override safety heartbeat")
+        } else if !active, let activity = overrideActivity {
+            ProcessInfo.processInfo.endActivity(activity); overrideActivity = nil
+        }
+    }
+    deinit {
+        timer?.cancel()
+        if let activity = overrideActivity { ProcessInfo.processInfo.endActivity(activity) }
     }
     func refresh() {
         queue.async { [weak self] in
@@ -75,17 +91,28 @@ final class FanModel: ObservableObject {
                 }
                 let temperature = self.temperatureReader?.read()
                 DispatchQueue.main.async { self.temperature = temperature }
-                if self.connected { _ = try HelperClient.request("ping") }
+                var helperIssue: String?
+                if self.connected {
+                    do { _ = try self.request("ping") }
+                    catch is HelperConnectionError {
+                        self.connected = false; self.keepOverrideAwake(false)
+                    }
+                    catch { helperIssue = error.localizedDescription }
+                }
                 let fans = try self.controller!.fans()
+                if !fans.contains(where: { $0.manual }) { self.keepOverrideAwake(false) }
+                let connected = self.connected
                 DispatchQueue.main.async {
                     self.fans = fans; self.fresh = true; self.readError = nil
-                    if !self.connected { self.mode = fans.contains(where: { $0.manual }) ? "External" : "Auto" }
+                    if let helperIssue { self.error = helperIssue }
+                    if !connected { self.mode = fans.contains(where: { $0.manual }) ? "External" : "Auto" }
                     else if !fans.contains(where: { $0.manual }) { self.mode = "Auto" }
                     if self.mode != "Max" { self.maxBaseline = nil }
                     self.statusChanged?()
                 }
             } catch {
                 self.connected = false
+                self.keepOverrideAwake(false)
                 DispatchQueue.main.async { self.fresh = false; self.maxBaseline = nil; self.readError = error.localizedDescription; self.mode = "Checking"; self.statusChanged?() }
             }
         }
@@ -93,15 +120,22 @@ final class FanModel: ObservableObject {
     func choose(_ mode: String, fraction: Double? = nil) {
         // Gate before authorization, including calls from menus or stale UI actions.
         guard mode == "Auto" || canControlFans else { return }
-        if mode == "Auto" && !connected && !canControlFans { return }
+        if mode == "Auto" && fans.isEmpty { return }
+        if isFanless { return }
         guard !busy || mode == "Auto" else { return }
         busy = true; error = nil
         statusChanged?()
         let value = fraction ?? (mode == "Min" ? 0 : mode == "Max" ? 1 : self.fraction)
         queue.async {
             do {
+                if mode != "Auto" { self.keepOverrideAwake(true) }
+                if self.connected {
+                    do { _ = try self.request("ping") }
+                    catch is HelperConnectionError { self.connected = false }
+                    catch { if mode != "Auto" { throw error } }
+                }
                 if mode != "Auto", !self.connected { try self.authorize(); self.connected = true }
-                if self.connected { _ = try HelperClient.request(mode == "Auto" ? "auto" : "set \(value)") }
+                if self.connected { _ = try self.request(mode == "Auto" ? "auto" : "set \(value)") }
                 else if try self.controller?.fans().contains(where: { $0.manual }) == true {
                     throw GustError("Another app controls these fans. Set that app to Auto first.")
                 }
@@ -110,6 +144,7 @@ final class FanModel: ObservableObject {
                 if mode == "Auto", current.contains(where: { $0.manual }) {
                     throw GustError("A fan is still in manual mode. Close other fan utilities and retry Auto.")
                 }
+                if mode == "Auto" { self.keepOverrideAwake(false) }
                 DispatchQueue.main.async {
                     if mode != "Max" { self.maxBaseline = nil }
                     else if self.mode != "Max" { self.maxBaseline = temperature }
@@ -118,12 +153,15 @@ final class FanModel: ObservableObject {
                     self.statusChanged?()
                 }
             } catch {
+                if error is HelperConnectionError { self.connected = false }
+                let current = (try? self.controller?.fans()) ?? []
+                self.keepOverrideAwake(self.connected && current.contains(where: { $0.manual }))
                 DispatchQueue.main.async { self.error = error.localizedDescription; self.busy = false; self.statusChanged?(); self.actionFailed?() }
             }
         }
     }
     func shutdown(_ completion: @escaping ()->Void) {
-        timer?.invalidate()
-        queue.async { if self.connected { _ = try? HelperClient.request("quit") }; DispatchQueue.main.async(execute: completion) }
+        timer?.cancel()
+        queue.async { if self.connected { _ = try? self.request("quit") }; self.keepOverrideAwake(false); DispatchQueue.main.async(execute: completion) }
     }
 }

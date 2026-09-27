@@ -34,14 +34,16 @@ jobs:
         run: |
           codesign --verify --deep --strict app/build/Gust.app
           test "$(lipo -archs app/build/Gust.app/Contents/MacOS/Gust | wc -w | tr -d ' ')" = 2
-          hdiutil verify app/build/Gust.dmg
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' app/build/Gust.app/Contents/Info.plist)
+          DMG="Gust-${VERSION}-macos.dmg"
+          hdiutil verify "app/build/$DMG"
           cd app/build
-          shasum -a 256 Gust.dmg > SHA256SUMS.txt
+          shasum -a 256 "$DMG" > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: Gust
           path: |
-            app/build/Gust.dmg
+            app/build/Gust-*-macos.dmg
             app/build/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0
@@ -58,6 +60,7 @@ jobs:
         with:
           package_json_file: web/package.json
       - run: pnpm install --frozen-lockfile
+      - run: bun test ../tests/download.test.ts
       - run: bun run build
 
   release:
@@ -78,8 +81,10 @@ jobs:
         run: |
           cd release
           sha256sum --check SHA256SUMS.txt
+          DMG="Gust-${GITHUB_REF_NAME#v}-macos.dmg"
+          test -f "$DMG"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" Gust.dmg SHA256SUMS.txt --clobber
+            gh release upload "$GITHUB_REF_NAME" "$DMG" SHA256SUMS.txt --clobber
           else
-            gh release create "$GITHUB_REF_NAME" Gust.dmg SHA256SUMS.txt --verify-tag --title "Gust $GITHUB_REF_NAME" --notes-file ../docs/release-notes.md --latest
+            gh release create "$GITHUB_REF_NAME" "$DMG" SHA256SUMS.txt --verify-tag --title "Gust $GITHUB_REF_NAME" --notes-file ../docs/release-notes.md --latest
           fi

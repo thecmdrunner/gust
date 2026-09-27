@@ -1,11 +1,12 @@
-Gust 1.1.1 makes fanless Macs feel at home.
+Gust 1.1.2 improves preset reliability when the app window is hidden.
 
-- **Quiet by nature.** Macs with no fans get a temperature-only panel, a calm explanation, and a shortcut to Activity Monitor.
-- The menu bar shows temperature instead of an empty RPM reading. Fan presets, speed sliders, and fan details disappear on fanless hardware.
-- No administrator prompt for fanless Macs. Temperature monitoring stays read-only.
-- Unknown hardware, failed fan reads, and a stopped fan are handled separately from confirmed zero fans.
-- The website explains MacBook Air compatibility before download.
+- Max, Min, and manual presets check for an expired helper connection and reconnect before applying.
+- Background heartbeats no longer depend on the UI run loop. Active overrides stay awake without preventing the Mac from sleeping.
+- Slow firmware unlocks get enough time to finish instead of triggering a premature disconnect.
+- The menu bar shows “Applying…” while a preset is in progress.
+- Safety refusals remain visible; Auto and the six-second watchdog remain available.
+- Installers now use the name `Gust-1.1.2-macos.dmg`. The website automatically finds the latest installer.
 
-**Install/update:** Quit Gust, open `Gust.dmg`, then drag Gust to Applications and choose Replace. If macOS blocks the app, open System Settings → Privacy & Security → Open Anyway. The original illustrated installer is preserved.
+**Update:** Quit Gust, open `Gust-1.1.2-macos.dmg`, then drag Gust to Applications and choose Replace. If macOS blocks the app, use System Settings → Privacy & Security → Open Anyway. The original illustrated installer is unchanged.
 
-Universal Apple Silicon / Intel, macOS 14+. Ad-hoc signed, not notarized. Temperature availability varies by Mac. Fanless behavior was tested with hardware fixtures and rendered in light/dark themes; a physical MacBook Air was not available for testing.
+Universal Apple Silicon / Intel, macOS 14+. Ad-hoc signed, not notarized.

@@ -17,3 +17,11 @@ Legacy helper migration runs only after administrator authorization for a manual
 18 core tests plus five model tests pass. The new model tests exercise confirmed zero fans with and without temperature data, initial checking, missing fan-count keys, recovery from read failure, and a physical fan stopped at zero RPM. They assert that fanless/unknown paths never request administrator authorization or write SMC data. Temperature can remain visible if the independent fan read fails.
 
 The actual SwiftUI fanless component was rendered off-screen with explicit fixture readings in light and dark themes, plus the missing-temperature state. These are test fixtures, not live MacBook Air measurements. No preview mode or synthetic temperature data is shipped in the app. A physical MacBook Air was not available. The production website build passes.
+
+## 1.1.2 hidden-window preset regression
+
+Three red/green reproductions: a stopped-fan model with an expired helper returned the reported disconnect error on its next Max selection; suppressing the UI run loop prevented the old timer from sending heartbeats; and a supported slow firmware unlock consumed 8.6 seconds against the former eight-second client timeout. The injected transport uses the real FanModel command path; it does not simulate SMC writes on the host Mac.
+
+The fixed suite covers reconnect-before-preset, independent background heartbeats, no reauthorization on a safety refusal, and Auto after a refusal. The firmware test checks that the transport budget covers supported arbitration/retry waits. The six-second helper watchdog remains unchanged. Full physical reproduction of the user's hidden-window scenario is not claimed; OS App Nap timing itself was not forced in the test.
+
+Five download-route tests cover versioned names, legacy fallback, missing assets, API failures, and unexpected hosts. Universal compilation, native tests, website typechecking/build, and the preserved DMG packaging are verified for this release.

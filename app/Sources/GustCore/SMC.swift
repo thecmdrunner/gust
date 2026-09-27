@@ -205,11 +205,16 @@ public enum HelperCommand: Equatable {
     }
 }
 
+public struct HelperConnectionError: LocalizedError {
+    public init() {}
+    public var errorDescription: String? { "Fan connection lost. Give Gust a moment, then try the preset again." }
+}
+
 public enum HelperClient {
     public static func request(_ command: String) throws -> String {
         var response = [CChar](repeating: 0, count: 2048)
         guard gust_request(getuid(), getpid(), command, &response, response.count) == 0 else {
-            throw GustError("Fan helper disconnected. macOS control restores after the safety timeout.")
+            throw HelperConnectionError()
         }
         let reply = String(cString: response)
         guard reply.hasPrefix("OK") else { throw GustError(String(reply.dropFirst(4))) }

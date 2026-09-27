@@ -1,5 +1,6 @@
 import Foundation
 import GustCore
+import CSMC
 
 var passed = 0
 func check(_ name: String, _ block: () throws -> Void) {
@@ -20,6 +21,7 @@ final class MockSMC: SMCTransport {
     var fail: String?
     var rejectRestore = false
     var needsUnlock = false
+    var delayedModeWrites = 0
     init(lowercase: Bool = false, intel: Bool = false) {
         for id in 0..<2 {
             for (suffix, n) in [("Ac", 1600.0), ("Mn", 1350.0), ("Mx", 5777.0), ("Tg", 1600.0)] {
@@ -39,6 +41,7 @@ final class MockSMC: SMCTransport {
         let unlocked = try values["Ftst"]!.number() != 0
         if rejectRestore && key.hasSuffix("Md") && n == 0 { throw GustError("Restore failed") }
         if needsUnlock && key.hasSuffix("Md") && n == 1 && !unlocked { return }
+        if key.hasSuffix("Md") && n == 1 && unlocked && delayedModeWrites > 0 { delayedModeWrites -= 1; return }
         values[key] = value
     }
 }
@@ -90,6 +93,15 @@ check("silent mode refusal triggers unlock and resets Ftst") {
     let c = FanController(smc: mock, wait: { _ in }); try c.set(fraction: 1)
     try expect(mock.number("Ftst") == 1); try expect(c.fans().allSatisfy { $0.manual })
     try c.restore(); try expect(mock.number("Ftst") == 0)
+}
+check("client waits for a supported slow firmware unlock") {
+    let mock = MockSMC(); mock.needsUnlock = true; mock.delayedModeWrites = 48
+    var elapsed = 0.0
+    let c = FanController(smc: mock, wait: { elapsed += $0 })
+    try c.set(fraction: 1)
+    print("Firmware wait budget: \(elapsed)s; client timeout: \(GUST_SET_REPLY_TIMEOUT_SECONDS)s")
+    try expect(elapsed < Double(GUST_SET_REPLY_TIMEOUT_SECONDS))
+    try c.restore()
 }
 check("lowercase Apple Silicon keys") {
     let mock = MockSMC(lowercase: true); let c = FanController(smc: mock)

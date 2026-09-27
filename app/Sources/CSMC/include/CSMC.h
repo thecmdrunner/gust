@@ -2,6 +2,9 @@
 #define DRAFT_SMC_H
 #include <stdint.h>
 #include <stddef.h>
+// Up to ten fans can each need 3s arbitration + 5s retries, plus rollback.
+// EOF still reports helper death immediately; only a live firmware operation waits.
+#define GUST_SET_REPLY_TIMEOUT_SECONDS 120
 typedef struct { uint32_t type; uint32_t size; uint8_t bytes[32]; } GustValue;
 int gust_smc_open(uint32_t *connection);
 void gust_smc_close(uint32_t connection);

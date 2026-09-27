@@ -4,7 +4,7 @@ const root = resolve(import.meta.dir, '../..')
 process.chdir(root)
 export function run(args: string[]) {
   const p = Bun.spawnSync(args, { stdout: 'inherit', stderr: 'inherit' })
-  if (p.exitCode) throw new Error(`${args[0]} failed (${p.exitCode})`)
+  if (p.exitCode !== 0) throw new Error(`${args[0]} failed (${p.exitCode ?? p.signalCode})`)
 }
 const universal = !process.argv.includes('--host-only')
 const architectures = universal ? ['arm64', 'x86_64'] : [process.arch === 'arm64' ? 'arm64' : 'x86_64']

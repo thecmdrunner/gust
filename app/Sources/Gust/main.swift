@@ -242,7 +242,7 @@ struct ContentView: View {
             if model.busy || model.mode == "External" {
                 HStack(spacing: 6) {
                     if model.busy { ProgressView().controlSize(.small) }
-                    Text(model.busy ? "Connecting…" : "Controlled by another app")
+                    Text(model.busy ? "Applying…" : "Controlled by another app")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
             }
@@ -322,7 +322,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             return
         }
         let rpm = model.fresh ? model.fans.first.map { Int($0.actual) } : nil
-        button.title = rpm.map { " \($0) rpm" } ?? " — rpm"
+        button.title = model.busy ? " Applying…" : rpm.map { " \($0) rpm" } ?? " — rpm"
         let reading = rpm.map { "\($0) revolutions per minute" } ?? (model.fresh && model.fans.isEmpty ? "No fans detected" : "Fan speed unavailable")
         button.setAccessibilityValue("\(reading), \(model.mode)\(model.busy ? ", applying preset" : "")")
         let temperature = model.temperature.map { " · \(Int($0.celsius.rounded()))°C" } ?? ""
