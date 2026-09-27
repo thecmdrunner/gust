@@ -38,18 +38,18 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center gap-8">
+      <main className="flex flex-1 flex-col items-center justify-center gap-6 sm:gap-8">
         <h1 className="text-center text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
           Full blast. <span className="text-muted">On demand.</span>
         </h1>
         <FanDemo />
       </main>
 
-      <footer className="flex flex-col items-center gap-2.5 pb-8">
+      <footer className="flex shrink-0 flex-col items-center gap-2.5 pb-8 pt-4">
         <div className="flex items-center gap-2">
           <a
             href={`${REPO}/releases/latest/download/Gust.dmg`}
-            className="flex items-center gap-2 rounded-full bg-fg px-6 py-3 text-sm font-medium text-bg transition hover:opacity-85 active:scale-[0.98]"
+            className="flex items-center gap-2 whitespace-nowrap rounded-full bg-fg px-4 py-3 text-sm font-medium text-bg transition hover:opacity-85 active:scale-[0.98] sm:px-6"
           >
             <svg
               viewBox="0 0 24 24"
@@ -63,16 +63,16 @@ export default function Home() {
           </a>
           <a
             href={REPO}
-            className="flex items-center gap-2 rounded-full border border-line bg-card px-5 py-3 text-sm font-medium transition hover:bg-line active:scale-[0.98]"
+            className="flex items-center gap-2 whitespace-nowrap rounded-full border border-line bg-card px-4 py-3 text-sm font-medium transition hover:bg-line active:scale-[0.98] sm:px-5"
           >
             <GitHubIcon className="size-4" />
             View source
           </a>
         </div>
         <p className="text-sm text-muted text-center">
-          Fan control requires a Mac with fans.
+          Fan control needs a Mac with fans.
           <br />
-          Apple Silicon MacBook Air: temperature only, where available.
+          Apple Silicon Air: temperature when available.
         </p>
         <p className="text-xs text-muted">
           MIT licensed · macOS 14+
